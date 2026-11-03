@@ -70,8 +70,14 @@ def root():
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy", "service": "pramaan-fastapi"}
+    return {
+        "status": "healthy",
+        "service": "pramaan-fastapi",
+        "database": "connected" if mongo_db.is_connected else "fallback_mode"
+    }
 
 if __name__ == "__main__":
+    import os
     import uvicorn
-    uvicorn.run("backend.app.main:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("backend.app.main:app", host="0.0.0.0", port=port, reload=False)

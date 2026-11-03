@@ -1,5 +1,6 @@
 import os
 import asyncio
+import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -32,16 +33,22 @@ class MongoDBManager:
                 connectTimeoutMS=2500,
             )
             self.db = self.client[self._db_name]
-            # Ping database to verify connection
-            await self.client.admin.command('ping')
+            # Ping database to verify connection with a 3.0s hard timeout
+            await asyncio.wait_for(self.client.admin.command('ping'), timeout=3.0)
             self.is_connected = True
+            logging.getLogger(__name__).info(f"[MongoDB] Successfully connected to MongoDB database '{self._db_name}'.")
             print(f"[MongoDB] Successfully connected to MongoDB database '{self._db_name}'.")
 
             # Create Indexes
             await self._create_indexes()
         except Exception as e:
             self.is_connected = False
-            print(f"[MongoDB] Notice: Could not establish direct MongoDB connection ({e}). Using persistent local fallback engine.")
+            msg = f"[MongoDB ERROR] Could not establish connection to MongoDB Atlas ({e}). Operating in persistent local fallback engine."
+            if settings.ENVIRONMENT == "production":
+                logging.getLogger(__name__).error(msg + " ATTENTION: In production, verify MONGODB_URI and IP whitelist 0.0.0.0/0 on MongoDB Atlas.")
+            else:
+                logging.getLogger(__name__).warning(msg)
+            print(msg)
 
     async def _create_indexes(self):
         if not self.is_connected or self.db is None:
